@@ -6,9 +6,9 @@
 <title>Súmula — Controle de Presença · Futsal</title>
 <style>
 :root{
-  --court:#0E3B2A;
-  --court-deep:#0A2B1F;
-  --court-line:#1D5C41;
+  --court:#181B20;
+  --court-deep:#050607;
+  --court-line:#2C3138;
   --paper:#F6F2E7;
   --paper-2:#EFE9D8;
   --ink:#152219;
@@ -386,27 +386,53 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 }
 .hint{font-size:12px;color:var(--ink-faint);margin-top:8px;line-height:1.5;}
 
-/* ---------- EXPORTAR VIEW ---------- */
-.export-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-@media (max-width:520px){.export-grid{grid-template-columns:1fr;}}
-.preview-box{
-  margin-top:14px;border:1.5px dashed var(--line);border-radius:11px;padding:14px;
-  background:var(--paper);font-family:var(--font-mono);font-size:12.5px;color:var(--ink-soft);
-  max-height:220px;overflow:auto;
+/* ---------- DASHBOARD VIEW ---------- */
+.kpi-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 16px 18px;
 }
-.preview-box table{width:100%;border-collapse:collapse;}
-.preview-box th,.preview-box td{padding:4px 8px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap;}
-.preview-box th{color:var(--ink);}
-.status-pill{padding:1px 7px;border-radius:5px;font-size:11px;font-weight:700;}
-.status-pill.p{background:#DFF3E8;color:var(--present-deep);}
-.status-pill.a{background:#FBE3DF;color:var(--absent-deep);}
-.export-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
-.cat-check-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;}
-.cat-check{
-  display:flex;align-items:center;gap:6px;border:1.5px solid var(--line);border-radius:999px;
-  padding:6px 12px;font-size:12.5px;font-weight:600;cursor:pointer;background:#fff;
+@media (max-width:640px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
+.kpi-tile{
+  background:#fff;border:1.5px solid var(--line);border-radius:var(--radius);
+  padding:14px 12px;display:flex;flex-direction:column;gap:2px;box-shadow:var(--shadow);
 }
-.cat-check input{margin:0;}
+.kpi-tile .kpi-v{
+  font-family:var(--font-display);font-weight:800;font-stretch:condensed;
+  font-size:26px;color:var(--ink);line-height:1.15;
+}
+.kpi-tile .kpi-k{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;font-weight:600;}
+.kpi-tile.accent .kpi-v{color:var(--present-deep);}
+.kpi-tile.warn .kpi-v{color:var(--absent-deep);}
+
+.chart-legend{display:flex;gap:16px;margin-bottom:12px;}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-soft);font-weight:600;}
+.legend-item .sw{width:10px;height:10px;border-radius:3px;display:inline-block;}
+.sw-pres{background:var(--present);}
+.sw-abs{background:var(--absent);}
+
+.bar-list{display:flex;flex-direction:column;gap:12px;}
+.bar-row{display:grid;grid-template-columns:64px 1fr 96px;align-items:center;gap:10px;}
+@media (max-width:480px){.bar-row{grid-template-columns:52px 1fr 84px;gap:7px;}}
+.bar-row-label{font-size:12.5px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bar-track{
+  height:16px;border-radius:5px;background:var(--paper-2);border:1px solid var(--line);
+  display:flex;overflow:hidden;
+}
+.bar-seg{height:100%;}
+.bar-seg.bar-pres{background:var(--present);}
+.bar-seg.bar-abs{background:var(--absent);margin-left:2px;}
+.bar-seg.bar-empty{background:transparent;width:100%;}
+.bar-row-nums{
+  display:flex;flex-direction:column;align-items:flex-end;line-height:1.25;
+  font-family:var(--font-mono);
+}
+.bar-row-nums strong{font-size:13px;color:var(--ink);}
+.bar-row-nums span{font-size:10.5px;color:var(--ink-faint);}
+
+.dash-table .num-cell{font-family:var(--font-mono);text-align:center;}
+.mini-bar-wrap{display:flex;align-items:center;gap:6px;min-width:88px;}
+.mini-bar{width:50px;flex-shrink:0;height:9px;border-radius:4px;background:var(--paper-2);border:1px solid var(--line);overflow:hidden;}
+.mini-bar-fill{height:100%;background:linear-gradient(90deg,var(--present) 0%,var(--present-deep) 100%);}
+.mini-bar-pct{font-family:var(--font-mono);font-size:11.5px;color:var(--ink-soft);min-width:34px;text-align:right;}
 
 .toast{
   position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);
@@ -465,6 +491,7 @@ function saveState(){
 let state = loadState();
 if(!state.settings) state.settings = { email:'' };
 if(!state.catFilter) state.catFilter = 'Todas';
+if(!state.dashCatFilter) state.dashCatFilter = 'Todas';
 
 /* =========================================================
    SINCRONIZAÇÃO NA NUVEM (opcional, via Supabase)
@@ -625,7 +652,7 @@ function render(){
   app.innerHTML = `
     ${renderHeader()}
     <div id="view">${renderView()}</div>
-    <p class="footer-note">Súmula funciona 100% offline · dados salvos neste navegador · exportação em .xlsx</p>
+    <p class="footer-note">Súmula ${CLOUD_ENABLED ? '· sincronizada com o Supabase' : '· funciona 100% offline · dados salvos neste navegador'}</p>
   `;
   attachHeaderEvents();
   attachViewEvents();
@@ -648,7 +675,7 @@ function renderHeader(){
     <div class="tabs" role="tablist">
       <button class="tab-btn ${state.tab==='chamada'?'active':''}" data-tab="chamada" role="tab">Chamada</button>
       <button class="tab-btn ${state.tab==='atletas'?'active':''}" data-tab="atletas" role="tab">Atletas</button>
-      <button class="tab-btn ${state.tab==='exportar'?'active':''}" data-tab="exportar" role="tab">Exportar</button>
+      <button class="tab-btn ${state.tab==='dashboard'?'active':''}" data-tab="dashboard" role="tab">Dashboard</button>
     </div>
   </div>`;
 }
@@ -663,7 +690,7 @@ function attachHeaderEvents(){
 function renderView(){
   if(state.tab==='chamada') return renderChamada();
   if(state.tab==='atletas') return renderAtletas();
-  if(state.tab==='exportar') return renderExportar();
+  if(state.tab==='dashboard') return renderDashboard();
   return '';
 }
 
@@ -835,129 +862,13 @@ function renderAtletas(){
   `;
 }
 
-/* ---------- EXPORTAR ---------- */
-function renderExportar(){
-  const todayISO = toISO(new Date());
-  const from = state.exportFrom || toISO(startOfWeek(new Date()));
-  const to = state.exportTo || todayISO;
-  const cats = state.categories;
-  const selectedCats = state.exportCats || cats.slice();
-
-  const catChecks = cats.map(c=>`
-    <label class="cat-check">
-      <input type="checkbox" data-export-cat="${c}" ${selectedCats.includes(c)?'checked':''}> ${c}
-    </label>`).join('');
-
-  const rows = buildExportRows(from, to, selectedCats);
-  const previewRows = rows.slice(1,1+8);
-
-  return `
-  <div class="panel">
-    <h3>Gerar relatório de presença</h3>
-    <div class="export-grid">
-      <div class="field">
-        <label for="exp-from">De</label>
-        <input type="date" id="exp-from" value="${from}">
-      </div>
-      <div class="field">
-        <label for="exp-to">Até</label>
-        <input type="date" id="exp-to" value="${to}">
-      </div>
-    </div>
-    <div class="field" style="margin-top:12px;">
-      <label>Categorias incluídas</label>
-      <div class="cat-check-row">${catChecks}</div>
-    </div>
-
-    <div class="field" style="margin-top:14px;max-width:360px;">
-      <label for="dest-email">Email de destino</label>
-      <input type="email" id="dest-email" placeholder="destino@clube.com.br" value="${escapeAttr(state.settings.email||'')}">
-    </div>
-    <p class="hint">Este é o email fixo para onde o relatório será enviado. Fica salvo neste navegador — só precisa preencher uma vez.</p>
-
-    <div class="preview-box" aria-live="polite">
-      ${rows.length<=1 ? '<p style="margin:0;">Nenhuma chamada registrada nesse período/categorias. Marque presenças na aba Chamada primeiro.</p>' : `
-      <table>
-        <thead><tr>${rows[0].map(h=>`<th>${h}</th>`).join('')}</tr></thead>
-        <tbody>
-          ${previewRows.map(r=>`<tr>${r.map((c,i)=> i===r.length-1 ? `<td><span class="status-pill ${c==='Presente'?'p':'a'}">${c}</span></td>` : `<td>${c}</td>`).join('')}</tr>`).join('')}
-        </tbody>
-      </table>
-      ${rows.length-1>previewRows.length ? `<p style="margin:8px 0 0;">+ ${rows.length-1-previewRows.length} linha(s) adicionais no arquivo final…</p>` : ''}
-      `}
-    </div>
-
-    <div class="export-actions">
-      <button class="btn btn-dark" id="btn-download" ${rows.length<=1?'disabled':''}>⬇ Baixar Excel (.xlsx)</button>
-      <button class="btn btn-primary" id="btn-download-email" ${rows.length<=1?'disabled':''}>✉ Baixar e enviar por email</button>
-    </div>
-    <p class="hint">"Baixar e enviar por email" tenta anexar o Excel automaticamente pela folha de compartilhamento do aparelho (funciona na maioria dos celulares — é só escolher o app de email na lista, o arquivo já vem anexado). Em computadores sem esse recurso, ele baixa o Excel e abre um rascunho de email pronto — aí é só arrastar o arquivo baixado e clicar em enviar.</p>
-  </div>
-  `;
-}
-
-function buildExportRows(fromISOd, toISOd, cats){
-  const header = ['Data','Dia da Semana','Categoria','Atleta','Número','Status'];
-  const rows = [header];
-  if(!fromISOd || !toISOd) return rows;
-  let d = fromISO(fromISOd);
-  const end = fromISO(toISOd);
-  if(d>end) return rows;
-  while(d<=end){
-    if(isTrainingDay(d)){
-      const iso = toISO(d);
-      const record = state.attendance[iso];
-      if(record){
-        const dayAthletes = state.athletes.filter(a=>cats.includes(a.category) && record.hasOwnProperty(a.id));
-        dayAthletes
-          .sort((a,b)=> a.category.localeCompare(b.category) || a.name.localeCompare(b.name,'pt-BR'))
-          .forEach(a=>{
-            rows.push([fmtBR(d), weekdayFull(d), a.category, a.name, a.number||'', record[a.id]?'Presente':'Ausente']);
-          });
-      }
-    }
-    d = addDays(d,1);
-  }
-  return rows;
-}
-
-function buildSummaryRows(fromISOd, toISOd, cats){
-  const header = ['Categoria','Atleta','Número','Dias com chamada','Presenças','Faltas','% Presença'];
-  const rows = [header];
-  if(!fromISOd || !toISOd) return rows;
-  let d = fromISO(fromISOd);
-  const end = fromISO(toISOd);
-  const tally = {};
-  while(d<=end){
-    if(isTrainingDay(d)){
-      const iso = toISO(d);
-      const record = state.attendance[iso];
-      if(record){
-        state.athletes.filter(a=>cats.includes(a.category) && record.hasOwnProperty(a.id)).forEach(a=>{
-          if(!tally[a.id]) tally[a.id] = {a, dias:0, pres:0};
-          tally[a.id].dias++;
-          if(record[a.id]) tally[a.id].pres++;
-        });
-      }
-    }
-    d = addDays(d,1);
-  }
-  Object.values(tally)
-    .sort((x,y)=> x.a.category.localeCompare(y.a.category) || x.a.name.localeCompare(y.a.name,'pt-BR'))
-    .forEach(t=>{
-      const pct = t.dias ? Math.round((t.pres/t.dias)*1000)/10 : 0;
-      rows.push([t.a.category, t.a.name, t.a.number||'', t.dias, t.pres, t.dias-t.pres, pct+'%']);
-    });
-  return rows;
-}
-
 /* =========================================================
    EVENTS
    ========================================================= */
 function attachViewEvents(){
   if(state.tab==='chamada') attachChamadaEvents();
   if(state.tab==='atletas') attachAtletasEvents();
-  if(state.tab==='exportar') attachExportarEvents();
+  if(state.tab==='dashboard') attachDashboardEvents();
 }
 
 function attachChamadaEvents(){
@@ -1062,108 +973,6 @@ function attachAtletasEvents(){
   });
 }
 
-function attachExportarEvents(){
-  document.getElementById('exp-from')?.addEventListener('change', (e)=>{ state.exportFrom = e.target.value; saveState(); render(); });
-  document.getElementById('exp-to')?.addEventListener('change', (e)=>{ state.exportTo = e.target.value; saveState(); render(); });
-  document.querySelectorAll('[data-export-cat]').forEach(chk=>{
-    chk.addEventListener('change', ()=>{
-      const all = state.categories.slice();
-      let sel = state.exportCats ? state.exportCats.slice() : all.slice();
-      const cat = chk.dataset.exportCat;
-      if(chk.checked){ if(!sel.includes(cat)) sel.push(cat); }
-      else { sel = sel.filter(c=>c!==cat); }
-      state.exportCats = sel;
-      saveState(); render();
-    });
-  });
-  document.getElementById('dest-email')?.addEventListener('change', (e)=>{
-    state.settings.email = e.target.value.trim();
-    saveState();
-  });
-  document.getElementById('btn-download')?.addEventListener('click', ()=>{
-    doExport(false);
-  });
-  document.getElementById('btn-download-email')?.addEventListener('click', ()=>{
-    doExport(true);
-  });
-}
-
-async function doExport(withEmail){
-  const from = document.getElementById('exp-from').value;
-  const to = document.getElementById('exp-to').value;
-  const cats = state.exportCats || state.categories.slice();
-  const detailRows = buildExportRows(from, to, cats);
-  const summaryRows = buildSummaryRows(from, to, cats);
-  if(detailRows.length<=1){ showToast('Nada para exportar nesse período.'); return; }
-
-  const fileName = `sumula_presenca_${from}_a_${to}.xlsx`;
-  const bytes = buildXlsx([
-    { name:'Presenças', rows: detailRows },
-    { name:'Resumo', rows: summaryRows }
-  ]);
-
-  if(!withEmail){
-    downloadBytes(bytes, fileName);
-    showToast('Excel baixado com sucesso.');
-    return;
-  }
-
-  const email = (document.getElementById('dest-email').value||'').trim();
-  if(!email){ showToast('Informe o email de destino antes de enviar.'); return; }
-  state.settings.email = email; saveState();
-
-  const subject = `Súmula de presença — futsal (${from} a ${to})`;
-  const body =
-`Segue relatório de presença do treino de futsal, período de ${from} a ${to}.
-
-Categorias incluídas: ${cats.join(', ')}
-Total de registros: ${detailRows.length-1}
-
-Gerado pela Súmula (app local de chamada).`;
-
-  // 1) Tenta anexar o Excel automaticamente via a folha de compartilhamento nativa
-  //    (funciona em celulares/navegadores compatíveis com Web Share API + arquivos).
-  const shareResult = await tryShareFile(bytes, fileName, subject, `${body}\n\nEnviar para: ${email}`);
-  if(shareResult==='ok'){
-    showToast(`Escolha seu app de email na lista e envie para ${email} — o Excel já está anexado.`);
-    return;
-  }
-  if(shareResult==='cancelled'){
-    showToast('Envio cancelado.');
-    return;
-  }
-
-  // 2) Sem suporte a compartilhamento com arquivo (ex: computador) — baixa o Excel
-  //    e abre um rascunho de email pronto; só falta anexar o arquivo baixado.
-  downloadBytes(bytes, fileName);
-  const mailBody = `${body}\n\nIMPORTANTE: anexe o arquivo "${fileName}" que acabou de ser baixado antes de enviar este email.`;
-  const mailto = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(mailBody)}`;
-  setTimeout(()=>{ window.location.href = mailto; }, 400);
-  showToast('Excel baixado. Anexe o arquivo no email que vai abrir e clique em enviar.');
-}
-
-async function tryShareFile(bytes, fileName, title, text){
-  try{
-    if(!(navigator.share && navigator.canShare)) return 'unsupported';
-    const file = new File([bytes], fileName, { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    if(!navigator.canShare({ files:[file] })) return 'unsupported';
-    await navigator.share({ files:[file], title, text });
-    return 'ok';
-  }catch(err){
-    if(err && err.name==='AbortError') return 'cancelled';
-    return 'unsupported';
-  }
-}
-
-function downloadBytes(bytes, filename){
-  const blob = new Blob([bytes], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click();
-  setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 800);
-}
-
 /* ---------- html escaping ---------- */
 function escapeHtml(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -1173,199 +982,158 @@ function escapeAttr(s){
 }
 
 /* =========================================================
-   MINIMAL PURE-JS XLSX WRITER (no external libraries, fully offline)
-   Builds a valid, uncompressed (STORE-only) .xlsx OOXML zip package.
+   DASHBOARD — indicadores de presença por categoria,
+   dia da semana e atleta (calculado a partir do estado
+   já sincronizado com o Supabase)
    ========================================================= */
-function strToBytes(str){ return new TextEncoder().encode(str); }
+function computeDashboardStats(catFilterVal){
+  const cats = catFilterVal==='Todas' ? state.categories.slice() : [catFilterVal];
+  const relevant = state.athletes.filter(a=>cats.includes(a.category));
+  const byAthlete = {};
+  relevant.forEach(a=>{ byAthlete[a.id] = { athlete:a, dias:0, pres:0 }; });
+  const byCategory = {};
+  const byWeekday = { 1:{dias:0,pres:0}, 2:{dias:0,pres:0}, 3:{dias:0,pres:0}, 4:{dias:0,pres:0} };
+  let trainingDaysWithData = 0;
 
-function xmlEscape(s){
-  return String(s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;').replace(/'/g,'&apos;');
-}
+  Object.keys(state.attendance).forEach(dateISO=>{
+    const d = fromISO(dateISO);
+    if(!isTrainingDay(d)) return;
+    const wd = d.getDay();
+    const record = state.attendance[dateISO];
+    let dayHasRelevantData = false;
+    relevant.forEach(a=>{
+      if(!record.hasOwnProperty(a.id)) return;
+      dayHasRelevantData = true;
+      const present = !!record[a.id];
 
-function colName(n){
-  let s=''; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); }
-  return s;
-}
+      byAthlete[a.id].dias++;
+      if(present) byAthlete[a.id].pres++;
 
-function sheetXml(rows){
-  let sheetData = '';
-  rows.forEach((row, ri)=>{
-    const r = ri+1;
-    let rowXml = `<row r="${r}">`;
-    row.forEach((cell, ci)=>{
-      const ref = colName(ci+1)+r;
-      if(typeof cell === 'number' && isFinite(cell)){
-        rowXml += `<c r="${ref}"><v>${cell}</v></c>`;
-      } else {
-        const val = (cell===null || cell===undefined) ? '' : String(cell);
-        rowXml += `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(val)}</t></is></c>`;
-      }
+      if(!byCategory[a.category]) byCategory[a.category] = { dias:0, pres:0 };
+      byCategory[a.category].dias++;
+      if(present) byCategory[a.category].pres++;
+
+      byWeekday[wd].dias++;
+      if(present) byWeekday[wd].pres++;
     });
-    rowXml += '</row>';
-    sheetData += rowXml;
+    if(dayHasRelevantData) trainingDaysWithData++;
   });
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${sheetData}</sheetData></worksheet>`;
-}
 
-function contentTypesXml(n){
-  const overrides = Array.from({length:n},(_,i)=>
-    `<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`
-  ).join('');
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-<Default Extension="xml" ContentType="application/xml"/>
-<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-${overrides}
-<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
-</Types>`;
-}
+  const athleteRows = Object.values(byAthlete).map(x=>{
+    const faltas = x.dias - x.pres;
+    const pct = x.dias ? Math.round((x.pres/x.dias)*100) : 0;
+    return { id:x.athlete.id, name:x.athlete.name, category:x.athlete.category, dias:x.dias, pres:x.pres, faltas, pct };
+  }).sort((a,b)=> b.pct - a.pct || a.name.localeCompare(b.name,'pt-BR'));
 
-const RELS_ROOT_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
-</Relationships>`;
-
-function workbookXml(sheets){
-  const sheetTags = sheets.map((s,i)=>
-    `<sheet name="${xmlEscape(s.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`
-  ).join('');
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-<sheets>${sheetTags}</sheets>
-</workbook>`;
-}
-
-function workbookRelsXml(n){
-  const sheetRels = Array.from({length:n},(_,i)=>
-    `<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`
-  ).join('');
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-${sheetRels}
-<Relationship Id="rId${n+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
-</Relationships>`;
-}
-
-const STYLES_XML = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>
-<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>
-<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
-<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs>
-</styleSheet>`;
-
-function buildXlsx(sheetsArr){
-  const files = [
-    { name:'[Content_Types].xml', data: strToBytes(contentTypesXml(sheetsArr.length)) },
-    { name:'_rels/.rels', data: strToBytes(RELS_ROOT_XML) },
-    { name:'xl/workbook.xml', data: strToBytes(workbookXml(sheetsArr)) },
-    { name:'xl/_rels/workbook.xml.rels', data: strToBytes(workbookRelsXml(sheetsArr.length)) },
-    { name:'xl/styles.xml', data: strToBytes(STYLES_XML) },
-  ];
-  sheetsArr.forEach((s,i)=>{
-    files.push({ name:`xl/worksheets/sheet${i+1}.xml`, data: strToBytes(sheetXml(s.rows)) });
+  const categoryRows = state.categories.filter(c=>cats.includes(c) && byCategory[c]).map(c=>{
+    const v = byCategory[c];
+    const faltas = v.dias - v.pres;
+    return { category:c, dias:v.dias, pres:v.pres, faltas, pct: v.dias ? Math.round((v.pres/v.dias)*100) : 0 };
   });
-  return buildZip(files);
+
+  const weekdayRows = [1,2,3,4].map(wd=>{
+    const v = byWeekday[wd];
+    const faltas = v.dias - v.pres;
+    return { wd, label: DOW_FULL[wd], short: DOW_SHORT[wd], dias:v.dias, pres:v.pres, faltas, pct: v.dias ? Math.round((v.pres/v.dias)*100) : 0 };
+  });
+
+  const totalPres = athleteRows.reduce((s,a)=>s+a.pres,0);
+  const totalFaltas = athleteRows.reduce((s,a)=>s+a.faltas,0);
+  const totalRegs = totalPres + totalFaltas;
+  const overallPct = totalRegs ? Math.round((totalPres/totalRegs)*100) : 0;
+
+  return { athleteRows, categoryRows, weekdayRows, totalAthletes: relevant.length, totalDias: trainingDaysWithData, totalPres, totalFaltas, overallPct };
 }
 
-/* ---- minimal ZIP (store method, no compression) ---- */
-let CRC_TABLE = null;
-function getCrcTable(){
-  if(CRC_TABLE) return CRC_TABLE;
-  const table = new Uint32Array(256);
-  for(let n=0;n<256;n++){
-    let c = n;
-    for(let k=0;k<8;k++){ c = (c&1) ? (0xEDB88320 ^ (c>>>1)) : (c>>>1); }
-    table[n] = c>>>0;
+function barRowHtml(label, r){
+  const presPct = r.dias ? (r.pres/r.dias*100) : 0;
+  const absPct = r.dias ? (r.faltas/r.dias*100) : 0;
+  const aria = r.dias
+    ? `${label}: ${r.pct}% de presença — ${r.pres} presenças e ${r.faltas} faltas em ${r.dias} registros`
+    : `${label}: sem registros ainda`;
+  return `
+    <div class="bar-row">
+      <div class="bar-row-label">${escapeHtml(label)}</div>
+      <div class="bar-track" role="img" aria-label="${escapeAttr(aria)}">
+        ${r.dias ? `<div class="bar-seg bar-pres" style="width:${presPct}%"></div><div class="bar-seg bar-abs" style="width:${absPct}%"></div>` : `<div class="bar-seg bar-empty"></div>`}
+      </div>
+      <div class="bar-row-nums"><strong>${r.dias ? r.pct+'%' : '—'}</strong><span>${r.pres}P · ${r.faltas}F</span></div>
+    </div>`;
+}
+
+function renderDashboard(){
+  const catFilter = state.dashCatFilter || 'Todas';
+  const cats = ['Todas', ...state.categories];
+  const chips = cats.map(c=>`<button class="chip ${catFilter===c?'active':''}" data-dashcat="${c}">${c}</button>`).join('');
+
+  if(state.athletes.length===0){
+    return `
+    <div class="section-head"><h2>Dashboard<span class="date-line">Indicadores de presença</span></h2></div>
+    <div class="empty-state"><span class="icon">📊</span><p>Cadastre atletas na aba <strong>Atletas</strong> e registre algumas chamadas para ver os indicadores aqui.</p></div>`;
   }
-  CRC_TABLE = table;
-  return table;
+
+  const stats = computeDashboardStats(catFilter);
+  const legend = `<div class="chart-legend"><span class="legend-item"><i class="sw sw-pres"></i>Presença</span><span class="legend-item"><i class="sw sw-abs"></i>Falta</span></div>`;
+
+  const catRowsHtml = stats.categoryRows.length
+    ? stats.categoryRows.map(r=>barRowHtml(r.category, r)).join('')
+    : `<p class="hint">Ainda não há chamadas registradas para gerar esse indicador.</p>`;
+
+  const weekRowsHtml = stats.weekdayRows.map(r=>barRowHtml(r.short, r)).join('');
+
+  const athleteRowsHtml = stats.athleteRows.length ? stats.athleteRows.map(a=>`
+    <tr>
+      <td>${escapeHtml(a.name)}</td>
+      <td><span class="tag">${a.category}</span></td>
+      <td class="num-cell">${a.pres}</td>
+      <td class="num-cell">${a.faltas}</td>
+      <td>
+        <div class="mini-bar-wrap">
+          <div class="mini-bar"><div class="mini-bar-fill" style="width:${a.pct}%"></div></div>
+          <span class="mini-bar-pct">${a.dias ? a.pct+'%' : '—'}</span>
+        </div>
+      </td>
+    </tr>`).join('') : `<tr><td colspan="5" class="hint" style="padding:14px 8px;">Nenhum atleta com chamada registrada nessa categoria ainda.</td></tr>`;
+
+  return `
+    <div class="section-head"><h2>Dashboard<span class="date-line">Indicadores de presença · calculado a partir das chamadas registradas</span></h2></div>
+    <div class="chip-row">${chips}</div>
+
+    <div class="kpi-grid">
+      <div class="kpi-tile"><span class="kpi-v">${stats.totalAthletes}</span><span class="kpi-k">Atletas</span></div>
+      <div class="kpi-tile"><span class="kpi-v">${stats.totalDias}</span><span class="kpi-k">Treinos registrados</span></div>
+      <div class="kpi-tile accent"><span class="kpi-v">${stats.overallPct}%</span><span class="kpi-k">Presença média</span></div>
+      <div class="kpi-tile warn"><span class="kpi-v">${stats.totalFaltas}</span><span class="kpi-k">Faltas no total</span></div>
+    </div>
+
+    <div class="panel">
+      <h3>Presença por categoria</h3>
+      ${legend}
+      <div class="bar-list">${catRowsHtml}</div>
+    </div>
+
+    <div class="panel">
+      <h3>Presença por dia da semana</h3>
+      ${legend}
+      <div class="bar-list">${weekRowsHtml}</div>
+    </div>
+
+    <div class="panel">
+      <h3>Atletas — presenças e faltas</h3>
+      <div style="overflow-x:auto;">
+      <table class="roster-table dash-table">
+        <thead><tr><th>Nome</th><th>Categoria</th><th>Pres.</th><th>Faltas</th><th>% Presença</th></tr></thead>
+        <tbody>${athleteRowsHtml}</tbody>
+      </table>
+      </div>
+    </div>
+  `;
 }
-function crc32(bytes){
-  const table = getCrcTable();
-  let crc = 0xFFFFFFFF;
-  for(let i=0;i<bytes.length;i++){ crc = (crc>>>8) ^ table[(crc ^ bytes[i]) & 0xFF]; }
-  return (crc ^ 0xFFFFFFFF) >>> 0;
-}
 
-function buildZip(files){
-  const localParts = [];
-  const centralParts = [];
-  let offset = 0;
-  const dosTime = 0;
-  const dosDate = ((2024-1980)<<9) | (1<<5) | 1;
-
-  files.forEach(f=>{
-    const nameBytes = strToBytes(f.name);
-    const data = f.data;
-    const crc = crc32(data);
-    const size = data.length;
-
-    const local = new Uint8Array(30 + nameBytes.length);
-    const dv = new DataView(local.buffer);
-    dv.setUint32(0, 0x04034b50, true);
-    dv.setUint16(4, 20, true);
-    dv.setUint16(6, 0, true);
-    dv.setUint16(8, 0, true);
-    dv.setUint16(10, dosTime, true);
-    dv.setUint16(12, dosDate, true);
-    dv.setUint32(14, crc, true);
-    dv.setUint32(18, size, true);
-    dv.setUint32(22, size, true);
-    dv.setUint16(26, nameBytes.length, true);
-    dv.setUint16(28, 0, true);
-    local.set(nameBytes, 30);
-    localParts.push(local, data);
-
-    const central = new Uint8Array(46 + nameBytes.length);
-    const cdv = new DataView(central.buffer);
-    cdv.setUint32(0, 0x02014b50, true);
-    cdv.setUint16(4, 20, true);
-    cdv.setUint16(6, 20, true);
-    cdv.setUint16(8, 0, true);
-    cdv.setUint16(10, 0, true);
-    cdv.setUint16(12, dosTime, true);
-    cdv.setUint16(14, dosDate, true);
-    cdv.setUint32(16, crc, true);
-    cdv.setUint32(20, size, true);
-    cdv.setUint32(24, size, true);
-    cdv.setUint16(28, nameBytes.length, true);
-    cdv.setUint16(30, 0, true);
-    cdv.setUint16(32, 0, true);
-    cdv.setUint16(34, 0, true);
-    cdv.setUint16(36, 0, true);
-    cdv.setUint32(38, 0, true);
-    cdv.setUint32(42, offset, true);
-    central.set(nameBytes, 46);
-    centralParts.push(central);
-
-    offset += local.length + data.length;
+function attachDashboardEvents(){
+  document.querySelectorAll('[data-dashcat]').forEach(c=>{
+    c.addEventListener('click', ()=>{ state.dashCatFilter = c.dataset.dashcat; saveState(); render(); });
   });
-
-  const centralSize = centralParts.reduce((a,b)=>a+b.length,0);
-  const centralOffset = offset;
-
-  const eocd = new Uint8Array(22);
-  const edv = new DataView(eocd.buffer);
-  edv.setUint32(0, 0x06054b50, true);
-  edv.setUint16(4, 0, true);
-  edv.setUint16(6, 0, true);
-  edv.setUint16(8, files.length, true);
-  edv.setUint16(10, files.length, true);
-  edv.setUint32(12, centralSize, true);
-  edv.setUint32(16, centralOffset, true);
-  edv.setUint16(20, 0, true);
-
-  const allParts = [...localParts, ...centralParts, eocd];
-  const total = allParts.reduce((a,b)=>a+b.length,0);
-  const out = new Uint8Array(total);
-  let p=0;
-  allParts.forEach(part=>{ out.set(part, p); p+=part.length; });
-  return out;
 }
 
 /* ---------- boot ---------- */
