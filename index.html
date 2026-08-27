@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Súmula — Controle de Presença · Futsal</title>
+<title>Lista de Presença — Futsal</title>
 <style>
 :root{
   --court:#181B20;
@@ -90,10 +90,10 @@ body::before{
   font-family:var(--font-display);
   font-weight:800;
   font-stretch:condensed;
-  letter-spacing:0.04em;
+  letter-spacing:0.02em;
   text-transform:uppercase;
-  font-size:clamp(30px,6vw,42px);
-  line-height:1;
+  font-size:clamp(19px,4.6vw,30px);
+  line-height:1.05;
   margin:0;
 }
 .brand small{
@@ -403,6 +403,19 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 .kpi-tile.accent .kpi-v{color:var(--present-deep);}
 .kpi-tile.warn .kpi-v{color:var(--absent-deep);}
 
+.period-row{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  gap:10px;padding:0 16px 18px;
+}
+.period-nav{display:flex;align-items:center;gap:10px;}
+.period-label{
+  font-family:var(--font-mono);font-size:12.5px;color:var(--ink-soft);
+  min-width:118px;text-align:center;white-space:nowrap;
+}
+.arrow.small{width:28px;height:28px;font-size:12px;background:#fff;border:1.5px solid var(--line);color:var(--ink);}
+.arrow.small:hover{background:var(--paper-2);}
+.chip.small{padding:5px 11px;font-size:11.5px;}
+
 .chart-legend{display:flex;gap:16px;margin-bottom:12px;}
 .legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-soft);font-weight:600;}
 .legend-item .sw{width:10px;height:10px;border-radius:3px;display:inline-block;}
@@ -458,7 +471,7 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px soli
 
 <script>
 /* =========================================================
-   SÚMULA — controle de presença de futsal (arquivo único, offline)
+   LISTA DE PRESENÇA — controle de presença de futsal (arquivo único, offline)
    Dados salvos localmente no navegador (localStorage).
    ========================================================= */
 
@@ -492,6 +505,8 @@ let state = loadState();
 if(!state.settings) state.settings = { email:'' };
 if(!state.catFilter) state.catFilter = 'Todas';
 if(!state.dashCatFilter) state.dashCatFilter = 'Todas';
+if(!state.dashPeriodMode) state.dashPeriodMode = 'all';
+if(!state.dashPeriodAnchor) state.dashPeriodAnchor = toISO(new Date());
 
 /* =========================================================
    SINCRONIZAÇÃO NA NUVEM (opcional, via Supabase)
@@ -603,6 +618,7 @@ function toISO(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.get
 function fromISO(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
 const DOW_FULL = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
 const DOW_SHORT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 function weekdayFull(d){ return DOW_FULL[d.getDay()]; }
 function weekdayShort(d){ return DOW_SHORT[d.getDay()]; }
 function isTrainingDay(d){ const wd=d.getDay(); return wd>=1 && wd<=4; }
@@ -652,7 +668,7 @@ function render(){
   app.innerHTML = `
     ${renderHeader()}
     <div id="view">${renderView()}</div>
-    <p class="footer-note">Súmula ${CLOUD_ENABLED ? '· sincronizada com o Supabase' : '· funciona 100% offline · dados salvos neste navegador'}</p>
+    <p class="footer-note">Lista de Presença ${CLOUD_ENABLED ? '· sincronizada com o Supabase' : '· funciona 100% offline · dados salvos neste navegador'}</p>
   `;
   attachHeaderEvents();
   attachViewEvents();
@@ -665,7 +681,7 @@ function renderHeader(){
     <div class="brand-row">
       <div class="brand-id">
         <div class="logo-badge"><img src="${LOGO_DATA_URI}" alt="Escudo do clube" width="50" height="50"></div>
-        <h1 class="brand">Súmula<small>controle de presença · futsal · seg–qui</small></h1>
+        <h1 class="brand">Lista de Presença<small>futsal · seg–qui</small></h1>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
         ${CLOUD_ENABLED ? `<button class="cloud-badge ${cloudStatus}" id="cloud-badge" type="button">${cloudBadgeLabel()}</button>` : ''}
@@ -789,7 +805,7 @@ function renderChamada(){
       <button class="arrow" id="week-next" aria-label="Próxima semana">▸</button>
     </div>
     <div class="section-head">
-      <h2>Súmula do dia<span class="date-line">${weekdayFull(cur)} · ${fmtBR(cur)}</span></h2>
+      <h2>Chamada do dia<span class="date-line">${weekdayFull(cur)} · ${fmtBR(cur)}</span></h2>
     </div>
     ${state.athletes.length>0 && trainingToday ? `<div class="chip-row">${chips}</div>` : ''}
     ${body}
@@ -986,7 +1002,44 @@ function escapeAttr(s){
    dia da semana e atleta (calculado a partir do estado
    já sincronizado com o Supabase)
    ========================================================= */
-function computeDashboardStats(catFilterVal){
+function getDashboardPeriodRange(){
+  const anchor = fromISO(state.dashPeriodAnchor);
+  if(state.dashPeriodMode==='week'){
+    const start = startOfWeek(anchor);
+    const end = addDays(start,6);
+    return { from:start, to:end };
+  }
+  if(state.dashPeriodMode==='month'){
+    const start = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+    const end = new Date(anchor.getFullYear(), anchor.getMonth()+1, 0);
+    return { from:start, to:end };
+  }
+  return null; // 'all' — sem recorte de período
+}
+
+function dashboardPeriodLabel(){
+  const anchor = fromISO(state.dashPeriodAnchor);
+  if(state.dashPeriodMode==='week'){
+    const start = startOfWeek(anchor);
+    const end = addDays(start,3); // exibe Seg–Qui, que são os dias de treino
+    return `${pad(start.getDate())}/${pad(start.getMonth()+1)} – ${pad(end.getDate())}/${pad(end.getMonth()+1)}/${end.getFullYear()}`;
+  }
+  if(state.dashPeriodMode==='month'){
+    return `${MONTH_NAMES[anchor.getMonth()]} de ${anchor.getFullYear()}`;
+  }
+  return 'Todo o período';
+}
+
+function shiftDashboardPeriod(dir){
+  const anchor = fromISO(state.dashPeriodAnchor);
+  if(state.dashPeriodMode==='week'){
+    state.dashPeriodAnchor = toISO(addDays(anchor, dir*7));
+  } else if(state.dashPeriodMode==='month'){
+    state.dashPeriodAnchor = toISO(new Date(anchor.getFullYear(), anchor.getMonth()+dir, 1));
+  }
+}
+
+function computeDashboardStats(catFilterVal, range){
   const cats = catFilterVal==='Todas' ? state.categories.slice() : [catFilterVal];
   const relevant = state.athletes.filter(a=>cats.includes(a.category));
   const byAthlete = {};
@@ -998,6 +1051,7 @@ function computeDashboardStats(catFilterVal){
   Object.keys(state.attendance).forEach(dateISO=>{
     const d = fromISO(dateISO);
     if(!isTrainingDay(d)) return;
+    if(range && (d<range.from || d>range.to)) return;
     const wd = d.getDay();
     const record = state.attendance[dateISO];
     let dayHasRelevantData = false;
@@ -1066,13 +1120,28 @@ function renderDashboard(){
   const cats = ['Todas', ...state.categories];
   const chips = cats.map(c=>`<button class="chip ${catFilter===c?'active':''}" data-dashcat="${c}">${c}</button>`).join('');
 
+  const periodMode = state.dashPeriodMode || 'all';
+  const periodModes = [
+    { key:'all', label:'Tudo' },
+    { key:'week', label:'Semana' },
+    { key:'month', label:'Mês' }
+  ];
+  const periodChips = periodModes.map(p=>`<button class="chip small ${periodMode===p.key?'active':''}" data-period-mode="${p.key}">${p.label}</button>`).join('');
+  const periodNav = periodMode!=='all' ? `
+    <div class="period-nav">
+      <button class="arrow small" id="period-prev" type="button" aria-label="Período anterior">◂</button>
+      <span class="period-label">${dashboardPeriodLabel()}</span>
+      <button class="arrow small" id="period-next" type="button" aria-label="Próximo período">▸</button>
+    </div>` : '';
+
   if(state.athletes.length===0){
     return `
     <div class="section-head"><h2>Dashboard<span class="date-line">Indicadores de presença</span></h2></div>
     <div class="empty-state"><span class="icon">📊</span><p>Cadastre atletas na aba <strong>Atletas</strong> e registre algumas chamadas para ver os indicadores aqui.</p></div>`;
   }
 
-  const stats = computeDashboardStats(catFilter);
+  const range = getDashboardPeriodRange();
+  const stats = computeDashboardStats(catFilter, range);
   const legend = `<div class="chart-legend"><span class="legend-item"><i class="sw sw-pres"></i>Presença</span><span class="legend-item"><i class="sw sw-abs"></i>Falta</span></div>`;
 
   const catRowsHtml = stats.categoryRows.length
@@ -1098,6 +1167,10 @@ function renderDashboard(){
   return `
     <div class="section-head"><h2>Dashboard<span class="date-line">Indicadores de presença · calculado a partir das chamadas registradas</span></h2></div>
     <div class="chip-row">${chips}</div>
+    <div class="period-row">
+      <div class="chip-row" style="padding:0;">${periodChips}</div>
+      ${periodNav}
+    </div>
 
     <div class="kpi-grid">
       <div class="kpi-tile"><span class="kpi-v">${stats.totalAthletes}</span><span class="kpi-k">Atletas</span></div>
@@ -1134,6 +1207,15 @@ function attachDashboardEvents(){
   document.querySelectorAll('[data-dashcat]').forEach(c=>{
     c.addEventListener('click', ()=>{ state.dashCatFilter = c.dataset.dashcat; saveState(); render(); });
   });
+  document.querySelectorAll('[data-period-mode]').forEach(c=>{
+    c.addEventListener('click', ()=>{
+      state.dashPeriodMode = c.dataset.periodMode;
+      state.dashPeriodAnchor = toISO(new Date());
+      saveState(); render();
+    });
+  });
+  document.getElementById('period-prev')?.addEventListener('click', ()=>{ shiftDashboardPeriod(-1); saveState(); render(); });
+  document.getElementById('period-next')?.addEventListener('click', ()=>{ shiftDashboardPeriod(1); saveState(); render(); });
 }
 
 /* ---------- boot ---------- */
