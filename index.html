@@ -162,26 +162,26 @@ body::before{
 
 /* ---------- WEEK STRIP ---------- */
 .week-nav{
-  display:flex; align-items:center; gap:8px;
+  display:flex; align-items:center; gap:6px;
   padding:16px 16px 4px;
 }
 .week-nav button.arrow{
   border:none;background:var(--paper-2);color:var(--ink);
-  width:34px;height:34px;border-radius:50%;
-  font-size:15px;cursor:pointer;
+  width:30px;height:30px;flex-shrink:0;border-radius:50%;
+  font-size:14px;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
   transition:background .15s;
 }
 .week-nav button.arrow:hover{background:var(--line);}
 .week-nav button.arrow:focus-visible{outline:2px solid var(--orange-deep);outline-offset:2px;}
-.week-strip{display:flex;gap:8px;flex:1;overflow-x:auto;}
+.week-strip{display:flex;gap:5px;flex:1;overflow-x:auto;min-width:0;}
 .day-pill{
   flex:1;
-  min-width:64px;
+  min-width:44px;
   border:1.5px solid var(--line);
   background:#fff;
-  border-radius:12px;
-  padding:8px 4px 9px;
+  border-radius:11px;
+  padding:7px 2px 8px;
   text-align:center;
   cursor:pointer;
   font-family:var(--font-body);
@@ -195,7 +195,7 @@ body::before{
 }
 .day-pill .num{
   font-family:var(--font-display); font-weight:800; font-stretch:condensed;
-  font-size:22px; display:block; line-height:1.2; color:var(--ink);
+  font-size:19px; display:block; line-height:1.2; color:var(--ink);
 }
 .day-pill .dot{
   width:5px;height:5px;border-radius:50%;margin:3px auto 0;background:transparent;
@@ -621,7 +621,7 @@ const DOW_SHORT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 function weekdayFull(d){ return DOW_FULL[d.getDay()]; }
 function weekdayShort(d){ return DOW_SHORT[d.getDay()]; }
-function isTrainingDay(d){ const wd=d.getDay(); return wd>=1 && wd<=4; }
+function isTrainingDay(d){ const wd=d.getDay(); return wd>=1 && wd<=5; }
 function fmtBR(d){ return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`; }
 function addDays(d,n){ const nd=new Date(d); nd.setDate(nd.getDate()+n); return nd; }
 function startOfWeek(d){ // Monday
@@ -681,7 +681,7 @@ function renderHeader(){
     <div class="brand-row">
       <div class="brand-id">
         <div class="logo-badge"><img src="${LOGO_DATA_URI}" alt="Escudo do clube" width="50" height="50"></div>
-        <h1 class="brand">Lista de Presença<small>futsal · seg–qui</small></h1>
+        <h1 class="brand">Lista de Presença<small>futsal · seg–sex</small></h1>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
         ${CLOUD_ENABLED ? `<button class="cloud-badge ${cloudStatus}" id="cloud-badge" type="button">${cloudBadgeLabel()}</button>` : ''}
@@ -714,7 +714,7 @@ function renderView(){
 function renderChamada(){
   const cur = fromISO(state.currentDate);
   const weekStart = startOfWeek(cur);
-  const days = [0,1,2,3].map(i=>addDays(weekStart,i)); // Mon-Thu
+  const days = [0,1,2,3,4].map(i=>addDays(weekStart,i)); // Mon-Fri
 
   const weekPills = days.map(d=>{
     const iso = toISO(d);
@@ -740,7 +740,7 @@ function renderChamada(){
   } else if(!trainingToday){
     body = `<div class="empty-state">
       <span class="icon">😴</span>
-      <p>${weekdayFull(cur)} não é dia de treino. Os treinos acontecem de segunda a quinta-feira.</p>
+      <p>${weekdayFull(cur)} não é dia de treino. Os treinos acontecem de segunda a sexta-feira.</p>
       <button class="btn btn-ghost" data-nearest="prev">◂ Treino anterior</button>
       <button class="btn btn-ghost" data-nearest="next">Próximo treino ▸</button>
     </div>`;
@@ -1021,7 +1021,7 @@ function dashboardPeriodLabel(){
   const anchor = fromISO(state.dashPeriodAnchor);
   if(state.dashPeriodMode==='week'){
     const start = startOfWeek(anchor);
-    const end = addDays(start,3); // exibe Seg–Qui, que são os dias de treino
+    const end = addDays(start,4); // exibe Seg–Sex, que são os dias de treino
     return `${pad(start.getDate())}/${pad(start.getMonth()+1)} – ${pad(end.getDate())}/${pad(end.getMonth()+1)}/${end.getFullYear()}`;
   }
   if(state.dashPeriodMode==='month'){
@@ -1045,7 +1045,7 @@ function computeDashboardStats(catFilterVal, range){
   const byAthlete = {};
   relevant.forEach(a=>{ byAthlete[a.id] = { athlete:a, dias:0, pres:0 }; });
   const byCategory = {};
-  const byWeekday = { 1:{dias:0,pres:0}, 2:{dias:0,pres:0}, 3:{dias:0,pres:0}, 4:{dias:0,pres:0} };
+  const byWeekday = { 1:{dias:0,pres:0}, 2:{dias:0,pres:0}, 3:{dias:0,pres:0}, 4:{dias:0,pres:0}, 5:{dias:0,pres:0} };
   let trainingDaysWithData = 0;
 
   Object.keys(state.attendance).forEach(dateISO=>{
@@ -1085,7 +1085,7 @@ function computeDashboardStats(catFilterVal, range){
     return { category:c, dias:v.dias, pres:v.pres, faltas, pct: v.dias ? Math.round((v.pres/v.dias)*100) : 0 };
   });
 
-  const weekdayRows = [1,2,3,4].map(wd=>{
+  const weekdayRows = [1,2,3,4,5].map(wd=>{
     const v = byWeekday[wd];
     const faltas = v.dias - v.pres;
     return { wd, label: DOW_FULL[wd], short: DOW_SHORT[wd], dias:v.dias, pres:v.pres, faltas, pct: v.dias ? Math.round((v.pres/v.dias)*100) : 0 };
